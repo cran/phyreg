@@ -1,0 +1,2 @@
+exportPattern("phyreg", "phyfromphylo", "phyfromnewick", "inf", "myd0", "myd1", "myd2", "myd3", "extax", "newickstr", "exphylo", "printparms", "who")
+
