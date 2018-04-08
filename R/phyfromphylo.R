@@ -55,6 +55,6 @@ function(phylo) {
        
        }
        
-       if (is.null(edge.length)) return(list(phy=outphy)) else  return(list(phy=outphy , hts=hts))
+       if (is.null(edge.length)) return(list(phy=outphy)) else  return(list(phy=outphy , heights=hts))
          
 }

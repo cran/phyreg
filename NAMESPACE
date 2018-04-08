@@ -1,2 +1,10 @@
-exportPattern("phyreg", "phyfromphylo", "phyfromnewick", "inf", "myd0", "myd1", "myd2", "myd3", "extax", "newickstr", "exphylo", "printparms", "who")
-
+importFrom("stats", "as.formula", "coef", "lm.wfit", "model.frame",
+             "model.matrix", "na.omit", "pf", "reformulate", "update")
+importFrom("utils", "tail")
+importFrom("utils", "globalVariables")
+export(phyreg)
+export(phyfromphylo)
+export(phyfromnewick)
+export(inf)
+export(new_default)
+export(factory_default)

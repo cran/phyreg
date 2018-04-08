@@ -1,44 +1,42 @@
 phyreg <-
-function(control, test, data, subset, phydata, taxmatrix, heightsdata, rho=-1, lorho=0.3, hirho=0.6, errrho=0.02, minrho=0.0001, tolerance=1e-6, oppf=5, opdf=0, parmx=0, parmxz=0, opfunccall=0, addDF=0, linputs=FALSE, sinputs=FALSE, means=FALSE, lmshortx=FALSE, lmshortxz=FALSE, lmlongx=FALSE, lmlongxz=FALSE, hinput=FALSE, paper=FALSE, dfwarning=TRUE, oprho=FALSE, plot=FALSE, reset=FALSE) {
+function(control, test, data, subset, phydata, taxmatrix, heightsdata, rho=-1, lorho=0.3, hirho=0.6, errrho=0.02, minrho=0.0001, tolerance=1e-6, oppf=5, opdf=0, parmx=0, parmxz=0, opfunccall=0, addDF=0, linputs=FALSE, sinputs=FALSE, means=FALSE, lmshortx=FALSE, lmshortxz=FALSE, lmlongx=FALSE, lmlongxz=FALSE, hinput=FALSE, paper=FALSE, dfwarning=TRUE, oprho=FALSE, reset=FALSE) {
 
 # ======= First define inphyreg and other functions, then get to body
 
+save_defparms<-function() {  ## These save_ files are multiply-defined (well the defparms one is, anyway, in phyreg and in restore_factory_parms
+ NAMESPACEpath<-system.file("NAMESPACE",package="phyreg")
+ newpath<-gsub("NAMESPACE","defparms",x=NAMESPACEpath)
+  save(.defparms,file=newpath) 
+ }
+
+save_curparms<-function() {
+ NAMESPACEpath<-system.file("NAMESPACE",package="phyreg")
+ newpath<-gsub("NAMESPACE","curparms",x=NAMESPACEpath)
+  save(.curparms,file=newpath) 
+ }
  
 inphyreg<-function(cont, intest, dataframe, insubset, phyvar, taxmat, inheights, rho=-1, lorho=0.1, hirho=0.9, errrho=0.08, minrho=0.01, 
-tolerance=1e-6, addDF=0, oppf=5, opdf=0, oprho=0, parmx=0, parmxz=0, opfunccall=0, linputs=FALSE, sinputs=FALSE, means=FALSE, lmshortx=FALSE, lmshortxz=FALSE, lmlongx=FALSE, lmlongxz=FALSE, hinput=FALSE, dfwarning=TRUE, paper=FALSE, plot=FALSE) {
+tolerance=1e-6, addDF=0, oppf=5, opdf=0, oprho=0, parmx=0, parmxz=0, opfunccall=0, linputs=FALSE, sinputs=FALSE, means=FALSE, lmshortx=FALSE, lmshortxz=FALSE, lmlongx=FALSE, lmlongxz=FALSE, hinput=FALSE, dfwarning=TRUE, paper=FALSE) {
 
-
-#====================================== definition of opsi 
-
-##         NO -- NOW ONLY ONE defintion of opsi, at top level
- 
 
 ## =============== This is ginv, taken from R 3..0.2 on 26 January 2014, to avoid having to load MASS
 
-#ginv<-  function (X, tol = sqrt(.Machine$double.eps)) 
-#{
-#    if (length(dim(X)) > 2L || !(is.numeric(X) || is.complex(X))) 
-#        stop("'X' must be a numeric or complex matrix")
-#    if (!is.matrix(X)) 
-#        X <- as.matrix(X)
-#    Xsvd <- svd(X)
-#    if (is.complex(X)) 
-#        Xsvd$u <- Conj(Xsvd$u)
-#    Positive <- Xsvd$d > max(tol * Xsvd$d[1L], 0)
-#    if (all(Positive)) 
-#        Xsvd$v %*% (1/Xsvd$d * t(Xsvd$u))
-#    else if (!any(Positive)) 
-#        array(0, dim(X)[2L:1L])
-#    else Xsvd$v[, Positive, drop = FALSE] %*% ((1/Xsvd$d[Positive]) * 
-#        t(Xsvd$u[, Positive, drop = FALSE]))
-#}
-
-VCMginv <- function(VCM, tolerance = sqrt(.Machine$double.eps))  ## retyped and shortened from the MASS ginv function
-{VCMsvd<-svd(VCM)                                                                                    ## is VCM the right name?
- pos<-(VCMsvd$d > max( tolerance*VCMsvd$d[1L],0))
- if (all(pos)) VCMsvd$v%*% (1/VCMsvd$d * t(VCMsvd$u))
-  else if (!any(pos)) array(0,c(dim(VCM)[1L],dim(VCM)[1L]))
-    else VCMsvd$v[, pos, drop=FALSE] %*% ((1/VCMsvd$d[pos]) * t(VCMsvd$u[, pos,drop=FALSE]))
+ginv<-  function (X, tol = sqrt(.Machine$double.eps)) 
+{
+    if (length(dim(X)) > 2L || !(is.numeric(X) || is.complex(X))) 
+        stop("'X' must be a numeric or complex matrix")
+    if (!is.matrix(X)) 
+        X <- as.matrix(X)
+    Xsvd <- svd(X)
+    if (is.complex(X)) 
+        Xsvd$u <- Conj(Xsvd$u)
+    Positive <- Xsvd$d > max(tol * Xsvd$d[1L], 0)
+    if (all(Positive)) 
+        Xsvd$v %*% (1/Xsvd$d * t(Xsvd$u))
+    else if (!any(Positive)) 
+        array(0, dim(X)[2L:1L])
+    else Xsvd$v[, Positive, drop = FALSE] %*% ((1/Xsvd$d[Positive]) * 
+        t(Xsvd$u[, Positive, drop = FALSE]))
 }
 
 
@@ -69,7 +67,7 @@ if(any(is.na(ftriple))) {cat("\nSome ftriple is NA\n"); browser()}
     }
    
    # try checks if the left or right half contains a higher value, and if so focusses in on that half
-   try<- function(xtriple, ftriple, xmid, fmid, lopos, hipos) {        ## Notice I should change this name, as its an R function I use elsewhere in the code!
+   mytry<- function(xtriple, ftriple, xmid, fmid, lopos, hipos) {        ## Notice I should change this name, as its an R function I use elsewhere in the code! 2018_04_05 --- changing to mytry
     if (fmid>ftriple[2]) {
       xtriplo<-xtriple[lopos]; xtriphi<-xtriple[hipos];
       xtriple[1]<<-xtriplo; xtriple[2]<<-xmid; xtriple[3]<<-xtriphi;
@@ -102,20 +100,20 @@ if(any(is.na(ftriple))) {cat("\nSome ftriple is NA\n"); browser()}
     if (ftriple[1]>ftriple[3]) {                     #  level 2 DO */
       lxmid<-sqrt(xtriple[1]*xtriple[2]);
       lfmid<-getlik(lxmid);
-      if (! try(xtriple,ftriple,lxmid,lfmid,1,2)) { # level 3 DO */
+      if (! mytry(xtriple,ftriple,lxmid,lfmid,1,2)) { # level 3 DO */
         rxmid<-sqrt(xtriple[2]*xtriple[3]);
         rfmid<-getlik(rxmid);
-        if (! try(xtriple, ftriple,rxmid,rfmid,2,3)) {
+        if (! mytry(xtriple, ftriple,rxmid,rfmid,2,3)) {
            centre(xtriple,ftriple,lxmid,lfmid,rxmid,rfmid)}
         }                                           # level 3 END */
      }    else    # level 2 END */  BEFORE the else
           {                                          # level 2 DO  */
       rxmid<-sqrt(xtriple[2]*xtriple[3]);
       rfmid<-getlik(rxmid);
-      if (! try(xtriple,ftriple,rxmid,rfmid,2,3)) { # level 3 DO  */
+      if (! mytry(xtriple,ftriple,rxmid,rfmid,2,3)) { # level 3 DO  */
         lxmid<-sqrt(xtriple[1]*xtriple[2]);
         lfmid<-getlik(lxmid);
-        if (! try(xtriple, ftriple,lxmid,lfmid,1,2)) {
+        if (! mytry(xtriple, ftriple,lxmid,lfmid,1,2)) {
           centre(xtriple,ftriple,lxmid,lfmid,rxmid,rfmid) }
         }                                             # level 3 END  */
       }                                               # level 2 END  */
@@ -142,10 +140,7 @@ paperv<- 1 - hmatmarca^rho  # This doesn't affect the value of paperv in the out
   papercvec[ii]<-getsigm(desct,paperv)-(1-heights[txp[ii]]**rho) 
   } }
   
-  ## TEMPORARY because in a heavily-used section: indeed, I've abandoned even the following line, so persuaded am I all is well here...
-  ## if (!all(papercvec>=0))  { print("some of papercvec is negative"); print(papercvec);print(specsetactive);print(txp);browser()}
-  #  mybool<-try(all(papercvec>=0))
-  #  if (class(mybool)=="try-error" || is.na(mybool) || !mybool) {cat(paste0(" getlik says papercvec has problems, possibly negative values")); browser()}
+  if (!all(papercvec>=0))  { print("some of papercvec is negative"); print(papercvec);print(specsetactive);print(txp);browser()}
 
 #  /* note that the heights are assumed scaled so the root is at 1 */
 #  /* note also we need to use on[] to get the original name of the
@@ -168,8 +163,8 @@ rhoterm<-(-sgliml2-sum(log(gliml3))/2)/2;
 
 #  /* Note we assume in what follows that we are controlling for something -- and that
 #     the constant will be there, so this is OK */
-invv<-VCMginv(paperv) 
-ssterm<-t(y) %*% invv %*% (diag(nspec)-designx %*% VCMginv(t(designx) %*% invv %*% designx) %*% t(designx) %*% invv) %*% y;
+invv<-ginv(paperv) 
+ssterm<-t(y) %*% invv %*% (diag(nspec)-designx %*% ginv(t(designx) %*% invv %*% designx) %*% t(designx) %*% invv) %*% y;
 
 lik<-rhoterm - (nontopactivenodes-nhinodes)*log(ssterm)/2;
 
@@ -180,67 +175,59 @@ return(lik)
 # =================== End of findmax and getlik ====================================
 #=================== Now define merge.formulae.ag and merge.formulae.test.ag ==========
 
+ merge.formulae.ag <- function(form1, form2, ...){
 
-merge.formulae.ag <- function(form1, form2, ...){
-
-# adapted and retyped and amended from merge.formula of
+# adapted from merge.formula of
 # http://stevencarlislewalker.wordpress.com/2012/08/06/merging-combining-adding-together-two-formula-objects-in-r/
 
+	# get character strings of the names for the responses 
+	# (i.e. left hand sides, lhs)
+	lhs1 <- deparse(form1[[2]])
+	lhs2 <- deparse(form2[[2]])
+	if(lhs2 !='.') stop('The response side of an update-style specification of the test terms must be "."')
 
-         # put character strings of responses into LHS1 and LHS2
-         LHS1<-deparse(form1[[2]])
-         LHS2<-deparse(form2[[2]])
-	if(LHS2 !='.') stop('The response side of an update-style specification of the test terms must be "."')
-
-         # put character strings of RHSs into RHS1 and RHS2
-         RHS2<-strsplit(deparse(form1[[3]], "\\+"))[[1]]
-         RHS2<-strsplit(deparse(form2[[3]], "\\+"))[[1]]
-         
-	# here, assume the environment bit is still right.
+	# get character strings of the right hand sides
+	rhs1 <- strsplit(deparse(form1[[3]]), " \\+ ")[[1]]
+	rhs2 <- strsplit(deparse(form2[[3]]), " \\+ ")[[1]]
+	
+	# here, I (AG) go in a wholly new direction, and I assume the environment bit is still right.
 	
 	out<-update(old=form1,new=form2,evaluate=FALSE)
-	
-	environment(out)<-parent.frame()
+
+	environment(out) <- parent.frame()
 
 	return(out)
-	
-}  # finish merge.formulae.ag
-
-
+}
 
 merge.formula.test.ag <- function(form1, form2, ...){
 
-# adapted, amended and retypes from merge.formula of
+# adapted from merge.formula of
 # http://stevencarlislewalker.wordpress.com/2012/08/06/merging-combining-adding-together-two-formula-objects-in-r/
 
-         # Get response1 into character string into LHS1
-         	LHS1 <- deparse(form1[[2]])
+	# get character strings of the names for the responses 
+	# (i.e. left hand sides, lhs)
+	lhs1 <- deparse(form1[[2]])
 	
-	# put character strings for RHSs into RHS1 and RHS2
-	
-	RHS1<-strsplit(deparse(form1[[3]], "\\+"))[[1]]
-	RHS2<-strsplit(deparse(form2[[3]], "\\+"))[[1]]
-	ndots<-length(grepRaw(".", RHS2, all=TRUE, fixed=TRUE))  ## grepRaw put in on 2014_01_31
-	if (ndots!=0) stop ('There must be no "." term in an "adding terms" style specification of the test terms.')
+	# get character strings of the right hand sides
+	rhs1 <- strsplit(deparse(form1[[3]]), " \\+ ")[[1]]
+	rhs2 <- strsplit(deparse(form2[[2]]), " \\+ ")[[1]]
+	ndots<-length(grepRaw(".", rhs2,all=TRUE,fixed=TRUE)) ## This RHS replaced countdots(rhs2) on 2014_01_31_1515 -- so watch out!!
+	if (ndots != 0) stop('There must be no "." term in a model-style specification of the test terms')
 
-         # Put together the separate sides
-	RHS <- c(RHS1, RHS2)
-	LHS <- LHS1
+	# create the merged rhs and lhs in character string form
+	rhs <- c(rhs1, rhs2)
+	lhs <- lhs1
 
-	# put the two sides together with the  
+	# put the two sides together with the amazing 
 	# reformulate function
-	# use "reformulate" to turn the sides into a single formula
-	
-	out <- reformulate(RHS, LHS)
-	
-	# set the environment of the formula
-	
-	environment(out)<-parent.frame()
+	out <- reformulate(rhs, lhs)
 
-          return(out)
-          
+	# set the environment of the formula (i.e. where should
+	# R look for variables when data aren't specified?)
+	environment(out) <- parent.frame()
+
+	return(out)
 }
-
 
 # =============== The body of inphyreg ====================
 
@@ -270,17 +257,6 @@ merge.formula.test.ag <- function(form1, form2, ...){
   specdataxz<-model.frame(outtest,dataframe,na.action=na.omit)
 
   designxz<-model.matrix(outtest,specdataxz)
-  
-  ## I now take a moment to check if the control model has zero RSS or the control+test model has zero RSS. This
-  ##  can be tested non-phylogenetically as that property is in theory the same whatever the vcm.
-  
-  test1<-try(lm(cont,dataframe),silent=TRUE)
-  if (class(test1)=="try-error") { print("lm on control model fails, about to quit"); browser(); stop()} else
-    if (sum(test1$residuals^2)<=tolerance) stop("The control model fits perfectly, so no test possible: nothing left for the test variables to explain.")
-  test1<-try(lm(outtest,dataframe),silent=TRUE)
-  if (class(test1)=="try-error") { print("lm on control and test model fails, about to quit"); browser(); stop()} else
-    if (sum(test1$residuals^2)<=tolerance) stop("The control+test model fits perfectly, so no test possible: perhaps F=infinity.")
-  
 
   myphyls<-getphytxp(phyvar,taxmat,spu)
   phy<-myphyls$phy
@@ -308,35 +284,15 @@ merge.formula.test.ag <- function(form1, form2, ...){
     
   # for convenience while levhts is delivered as a result
   levhts<- -1
-  
-#    print("just about to do hmode/levhts")
- #    browser()
-     
-  if (hmode==2) {heights<-pathlenfig2(nspec,spu,txp); hreport<-paste('Path lengths derived from "Figure 2" default method');levhts<-3} else {
-    if (hmode==1)  {if (length(inheights)==length(phy)+1) levhts<-0} else
-    if (hmode==3) {if (length(inheights)==ncol(taxmat)) levhts<-1 else if (length(inheights)==length(phy)+1) levhts<-0}
     
-  if (levhts==-1L) {
-    fop<-paste0("NOTE: inappropriate heights were supplied.\n")
-    fop<-paste0(fop,"There must be one for each node including the root, or one for each taxonomic vector.\n")
-    fop<-paste0(fop,"length(phy) = ", length(phy)," and length(inheights) = ",length(inheights),"\n")
-    fop<-paste0(fop,"hmode = ",hmode,"\n")
-    fop<-paste0(fop,('  Correct the weights, or specify "heightsdata=NULL" to use default "Figure 2" heights\n'))
-    cat(fop)
-    stop("Irrecoverable error.")}
-    
-    
- #   {if (nrow(inheights)==ncol(taxmat)) levhts<-1} else if (nrow(inheights)==nrow(phy)+1) levhts<-0 else levhts<-2
- 
+  if (hmode==2) {heights<-pathlenfig2(nspec,spu,txp); hreport<-paste('Path lengths derived from "Figure 2" default method')} else {
+     if (nrow(inheights)==ncol(taxmat)) levhts<-1 else if (nrow(inheights)==nrow(phy)+1) levhts<-0 else levhts<-2
      heights<-rep(-1,length(txp)+1)
-    if (hmode==1) {heights<-inheights[on]; hreport<-"Heights of each node were supplied separately"} else {
-      if (levhts==1) {inheights <-c(0,inheights); heights<-inheights[1+levels[on]]; hreport<-"Heights of taxonomic levels was supplied"} else {
-        if (levhts==0) {heights<-inheights[on]; hreport<-"Heights of each node were supplied separately" } else {
-         stop('A heights dataset was supplied but the number of rows did not mach the number of taxonomic levels or total number of nodes')}}}
-         
-     }  # end of the hmode, levhts and heights-setting code.
-     
-     
+     if (hmode==1) {heights<-inheights[on]; hreport<-"Heights of each node were supplied separately"} else {
+       if (levhts==1) {inheights <-c(0,inheights); heights<-inheights[1+levels[on]]; hreport<-"Heights of taxonomic levels was supplied"} else {
+         if (levhts==0) {heights<-inheights[on]; hreport<-"Heights of each node were supplied separately" } else {
+           stop('A heights dataset was supplied but the number of rows did not mach the number of taxonomic levels or total number of nodes')}}}}
+        
 ## The above code reflects the possible combinations of hmode and levhts. If hmode is 2, then Fig 2 is used as no heights are
 ##  supplied. If hmode is 1, then there is no taxmat. So the only good possibility is that the supplied heights are one per node
 ##  If hmode is 3, then there is taxmat. Now the user may supply one height per taxonomic level OR one height per node
@@ -372,7 +328,7 @@ edge<--1;    # This block gets the rho for control model, with its likelihood; f
 
 onesv<-array(1,c(nspec,1))
 paperv<- 1 - hmatmarca^bestrho
-invv<-VCMginv(paperv)
+invv<-ginv(paperv)
 
 for (ii in 1:nnodes) {  
  if (spn[ii]) {
@@ -403,9 +359,9 @@ longdesignx<-data.matrix(data.matrix(longdesignx)[,-1])  # Idea is to drop the f
 longdesignxz<-data.matrix(paperl%*%designxz)
 longdesignxz<-data.matrix(data.matrix(longdesignxz)[,-1])  # Idea is to drop the first column of all zeroes
 
-invc<-array(0,c(nontopnodes,nontopnodes)); for (ii in 1:nontopnodes) if (papercvec[[ii]]>0L) invc[[ii,ii]]<-1/papercvec[[ii]]
+invc<-ginv(paperc);
 if (ncol(longdesignx)>=1) {    # Is there anything in the control model?
- papere<-(diag(nontopnodes)-as.matrix(longdesignx)%*%VCMginv(t(as.matrix(longdesignx))%*%invc%*%as.matrix(longdesignx))%*%t(as.matrix(longdesignx))%*%invc)%*%longy
+ papere<-(diag(nontopnodes)-as.matrix(longdesignx)%*%ginv(t(as.matrix(longdesignx))%*%invc%*%as.matrix(longdesignx))%*%t(as.matrix(longdesignx))%*%invc)%*%longy
 }  else {
   papere<-longy} #  /* We are only controlling for the intercept */
 
@@ -415,10 +371,10 @@ mylmlongx<-lm.wfit(x=longdesignx, y=longy, w=regweights)
 mylmlongxz<-lm.wfit(x=longdesignxz, y=longy, w=regweights)
 
 # longrss<-t(papere)%*%invc%*%papere;
-longrss<-sum(mylmlongx$weights*mylmlongx$residuals^2)   ## Note that regweights was wrong whenever it has zero values, as lm.wfit omits those datapoints
+longrss<-sum(regweights*mylmlongx$residuals^2)
 longrdf<-mylmlongx$df.residual
 
-if (longrss<=tolerance) {print("No variation in long regression, so test is impossible. About to exit.");browser(); stop()} # Fixes y=0 case but also more widely
+if (longrss<=tolerance) stop("No variation in long regression, so test is impossible.") # Fixes y=0 case but also more widely
 
 papertau<-array(0,c(nontopnodes))
 ecm1e<-array(0,c(nhinodes))
@@ -462,21 +418,12 @@ wtdmeansxz<-t(onesv)%*%invv%*%cbind(y,designxz)/(t(onesv)%*%invv%*%onesv)[[1,1]]
 
  shorty<-papergcm1l %*% y
  shortdesignx<-data.matrix(papergcm1l%*%(data.matrix(designx)[,-1]))
- shortdesignxz<-data.matrix(papergcm1l%*%(data.matrix(designxz)[,-1]))  ## from here search for papercgm1l and designx
+ shortdesignxz<-data.matrix(papergcm1l%*%(data.matrix(designxz)[,-1]))
  
  shornode<-on[(nspec+1):nnodes]
 
 ## Note I had huge time-consuming trouble because the weights were arrays. They need to begin life as
 ##  just rep(0,length), and this allows them to be reused appropriately in the calculation of x * sqrt(w) inside lm.wfit.
-
-# Note also that lm.wfit omits datapoints with zero weight. Thus if shregweights has zeroes, mylmshortx$weights will still be all 1s, and
-#   shorter than shregweights. Thus I can't mix shregweights with the outputs of lm.wfit. I guess the same is true for the long ones, and 
-#   will need looking after.
-#
-## That turns out to be too simple. lm.wfit omits datapoints in a null model that have y=0. It does not omit datapoints in a non-null model
-##  that have y=0. I think this is the whole principle. If so, I need to expand the output of null models to the same length, to do my RCO/RCT
-##  calculations. It also means that users might have a problem interpreting mylmshortx -- and I'm not sure I'll do much about that now.
-##  I wouldn't like to be confused myself, however...
 
 mylmshortx<-lm.wfit(x=shortdesignx, y=shorty, w=shregweights)
 mylmshortxz<-lm.wfit(x=shortdesignxz, y=shorty, w=shregweights)
@@ -495,9 +442,9 @@ mylmshortxz<-lm.wfit(x=shortdesignxz, y=shorty, w=shregweights)
 
 testdendf<-mylmshortxz$df.residual - addDF
 testnumdf<-dfsxz-dfsx;
-testdenss<-sum(mylmshortxz$weights*mylmshortxz$residuals^2)    # What about weights? I've added them now
-testtotss<-sum(mylmshortx$weights*mylmshortx$residuals^2)          #  ditto (2014_02_04_1455)
-testnumss<-testtotss-testdenss
+testdenss<-sum(mylmshortxz$residuals^2)
+shxdenss<-sum(mylmshortx$residuals^2)
+testnumss<-shxdenss-testdenss
 
 testlongdf=dflxz-dflx;
 testlost=testlongdf-testnumdf;
@@ -516,7 +463,7 @@ det$poff<-poff; det$testf<-testf; det$testnumdf<-testnumdf; det$testdendf<-testd
 det$nspec<-nspec; det$nommiss<-nommiss; det$nspecactive<-nspecactive
 det$nomspuse<-nomspuse; 
 
-det$nphyhinodes<-nphyhinodes; det$nhinodes<-nhinodes; det$hilostomsp<-hilostomsp;
+det$nphyhinodes<-nphyhinodes; det$hilostomsp<-hilostomsp;
 det$hilostvar<-hilostvar; det$shorttotdf<-shorttotdf
 
 det$dflx<-dflx; det$dfxlost<-dfxlost; det$dfsx<-dfsx; det$testlongdf<-testlongdf; det$testlost<-testlost
@@ -526,45 +473,13 @@ det$rho<-bestrho; det$lik<-bestlik; det$edge<-edge
 
 det$missingnodes<-missingnodes
 
-
-## the plot stuff. But RCO may need expanding if shorty=0 and designx is null. The code below is inefficient but seems to work:
-##  I first expand RCO if necessary, then calculate DR, multiplying by WSH (zero for omitted nodes), and then shrink both
-##  RCT and DR back down. I could shrink RCT in the first place if appropriate, omit WSH weights, and Bob would be my
-##  uncle...
-
- WSH<-shregweights  # Note this should equal lmshortxz$weights but not necessarily lmshortx$weights (which are always 1)
- NN<-shornode[ WSH==1L]
-  
-  if (length(mylmshortxz$residuals)>length(mylmshortx$residuals)) {
-       RCO<-rep(0,length(mylmshortxz$residuals))
-      RCO[(shregweights!=0)]<-mylmshortx$residuals/(mylmshortx$df.residual-det$addDF) } else
-    RCO<-mylmshortx$residuals/(mylmshortx$df.residual-det$addDF)
-  RCT<-mylmshortxz$residuals/(mylmshortxz$df.residual-det$addDF)
-  if (length(RCO)!=length(RCT)) {cat(paste0("RCO and RCT of different lengths! Alarm!! About to browse...")); browser()}
-  DR<- WSH*( RCO^2- RCT^2)
-  RCT<- RCT[( WSH==1L)]
-  DR<- DR[( WSH==1L)]
- 
- det$influence<-data.frame(NN=NN, RCT=RCT/sqrt(mean(RCT^2)), DR=100*DR/sum(DR))
- ## DR so that the total change is 100, RCT so its standardised so its absolute value is like the absolute value of a standardised variable
- 
- 
 # ========================   det should now contain all the information for the stuff *I* have to format
 
 freq<-list(); preq<-list()
-
-preq$parmx<-parmx; preq$parmxz<-parmxz; preq$means<-means; preq$opfunccall<-opfunccall
-
-if (!missing(oppf)) {if (oppf>0L) freq$oppf<-oppf} 
-if (!missing(opdf)) {if (opdf>0L) freq$opdf<-opdf} 
-if (!missing(oprho)) {if (oprho>0L) freq$oprho<-oprho} 
-if (!missing(dfwarning)) { if (dfwarning>0L) freq$dfwarning<-dfwarning}
-if (!missing(plot)) { if (plot>0L) freq$plot<-plot} 
+freq$oppf<-oppf; freq$opdf<-opdf; preq$parmx<-parmx; preq$parmxz<-parmxz;
+preq$means<-means; freq$dfwarning<-dfwarning; freq$oprho<-oprho; preq$opfunccall<-opfunccall
 
 #  freq has the flags for the things I may have to format the output for.
-
-# Now I print the information I have to format
-  if (sum(as.numeric(freq))>0L) opsi(details=det, requests=freq, H0model=cont, HAmodel=outtest, originalIDs=on)
 
 # Now I print the requested information that I use print() for
 if (parmx) {cat("\n"); print(coef(mylmlongx))}
@@ -572,16 +487,19 @@ if (parmxz) {cat(paste("\n"));print(coef(mylmlongxz))}
 if(opfunccall) {cat(paste("\n\nCall of phyreg:\n\n",sep="")); print(funccall)}
 if(means) {cat(paste("\n")); print(wtdmeansxz)}
 
+# Now I print the information I have to format
+.outputstoredinf(details=det, requests=freq, H0model=cont, HAmodel=outtest)
+
 # anova(mylmshortx,mylmshortxz,test="F")  ## I may want to imitate this (or alternatively mimic lm to be able to get from lm.fit to lm, thence to anova
 
  #  the always included outputs go in first, then the optional ones conditionally
  ## Curiously, printing ipr afterwards shows that HAmodel comes with an environment, which no other element does. A problem?
- ipr<-list(H0model=cont, HAmodel=outtest, spu=spu,nomspuse=nomspuse,  longrss=longrss, shornode=shornode, details=det, means=wtdmeansxz, parmx=coef(mylmlongx), parmxz=coef(mylmlongxz), funccall=funccall, fullphy=phy, usedphy=txp, originalIDs=on)
+ ipr<-list(H0model=cont, HAmodel=outtest, spu=spu,nomspuse=nomspuse,  longrss=longrss, missingnodes=missingnodes, shornode=shornode, details=det, means=wtdmeansxz, parmx=coef(mylmlongx), parmxz=coef(mylmlongxz), funccall=funccall, fullphy=phy, usedphy=txp, originalIDs=on)
  
- #ipr$rho<-list()
- #ipr$rho$bestrho<-bestrho
- #ipr$rho$bestloglik<-bestlik
- #ipr$rho$edge<-c("Error state","Internal maximum of likelihood","Minimum value of rho","Set by user")[2+edge]
+ ipr$rho<-list()
+ ipr$rho$bestrho<-bestrho
+ ipr$rho$bestloglik<-bestlik
+ ipr$rho$edge<-c("Error state","Internal maximum of likelihood","Minimum value of rho","Set by user")[2+edge]
  
  if(lmshortx | lmshortxz | lmlongx | lmlongxz)  ipr$lm<-list()
  if (lmshortx) {ipr$lmshortx<-mylmshortx}
@@ -589,7 +507,7 @@ if(means) {cat(paste("\n")); print(wtdmeansxz)}
  if (lmlongx) {ipr$lmlongx<-mylmlongx}
  if (lmlongxz) {ipr$lmlongxz<-mylmlongxz}
 
- if (hinput) {ipr$hinput<-heights}
+ if (hinput) {ipr$heights<-heights}
  
  if (linputs) {ipr$linputs<-list(); ipr$linputs$y<-longy ; ipr$linputs$design<-longdesignxz; ipr$linputs$w<-regweights}
  if (sinputs) {ipr$sinputs<-list(); ipr$sinputs$y<-shorty;  ipr$sinputs$design<-shortdesignxz; ipr$sinputs$w<-shregweights}
@@ -597,46 +515,6 @@ if(means) {cat(paste("\n")); print(wtdmeansxz)}
      ipr$paper$c<-papercvec; ipr$paper$l<-paperl; ipr$paper$gcm1l<-papergcm1l; 
      ipr$paper$e<-papere; ipr$paper$g<-paperg; ipr$paper$tau<-papertau; ipr$paper$s<-papers
      }
-     
-     
-   # And now for the PGLS FVs.
- 
- FVx<-wtdmeansxz[1]
- if (ncol(longdesignx)>=1L) for (kk in 1:length(mylmlongx$coefficients)) FVx<-FVx+mylmlongx$coefficients[kk]*(designx[,kk+1]-wtdmeansxz[2+kk])
- ipr$pglsFVx<-FVx
- 
- FVxz<-wtdmeansxz[1]
- if (ncol(longdesignxz)>=1L)  for (kk in 1:length(mylmlongxz$coefficients)) FVxz<-FVxz+mylmlongxz$coefficients[kk]*(designxz[,kk+1]-wtdmeansxz[2+kk])
- ipr$pglsFVxz<-FVxz
-
-     
-   ## Now to deal with sdiagnostics and plot  ### Now done along other output using opsi, above, with automatic storage of plotted variables
-   
-   
-#  WSH<-mylmshortx$weights
- # NN<-shornode[ WSH==1L]
-#  RCO<-mylmshortx$residuals/(mylmshortx$df.residual-ipr$det$addDF)
-#  RCT<-mylmshortxz$residuals/(mylmshortxz$df.residual-ipr$det$addDF)
-#  DR<- WSH*( RCO^2- RCT^2)
-#  RCT<- RCT[( WSH==1L)]
-#  DR<- DR[( WSH==1L)]
- 
-#  if (sdiagnostics) {
-#  ipr$sdiagnostics<-list()
-#  ipr$sdiagnostics$NN<-NN
-#  ipr$sdiagnostics$RCO<RCO
-#  ipr$sdiagnostics$RCT<-RCT
-#  ipr$sdiagnostics$WSH<-WSH
-#  ipr$sdiagnostics$DR<-DR
-#   }
-  
-#   if (plot) plot(RCT,DR,main="Diagnostics of single contrasts",
-#                                        xlab="Standardised residuals in control+test model",
-#                                        ylab="Improvement in squared residual from adding test variables",
-#                                        sub="How each higher node's single contrast contributes to error") 
- 
-   ## and we're done here...
-   
 return(ipr)
     
   }  # finish inphyreg
@@ -696,8 +574,71 @@ getsigm<-function(desc, paperv) {
 ###  the old uw into olduw. But the old one is so horrible, I should simply delete it, as its a patchwork of
 ###  illogicalities. Only sentiment and excessive caution prevent me deleting it now altogether...
 
-## No, uw is now defined at top level
+uw<-function(phy,spu,nspec) { # called by getphytxp
 
+  lphy<-length(phy);
+  spc<-c(rep(1,nspec),rep(0,lphy-nspec)) 
+  spn<-c(spu,rep(0,lphy-nspec))
+  
+  isd<-rep(0,lphy+1)
+  for (ii in 1:lphy) isd[phy[ii]]<-isd[phy[ii]]+isd[ii]+spn[ii]  # This gives the total number of included species descendants
+  isd[1:nspec]<-spu                                                              #  and now including itself in the descendants
+
+ # A node is to be called "alive" if it has included species descendants, thus
+ alive<-(isd>=1)
+ 
+ # The number of daughters alive of a given higher node is important
+ ndalive<-rep(0,lphy+1)
+ for (ii in 1:lphy) ndalive[phy[ii]]<-ndalive[phy[ii]]+alive[ii]
+ 
+ # A node is to be kept in the new phylogeny if it (1) is a species node OR (2) has two alive daughters, thus
+ 
+ keep<-(ndalive>=2L) | c(spc,0) 
+  
+ # We're going to assign the closest ancestor who's to be kept. We require an ancestor of the root, so its given the next number up
+ 
+ bigphy<-c(phy,1+max(phy))
+ 
+ for (ii in lphy:1) if (!keep[bigphy[ii]]) bigphy[ii]<-bigphy[bigphy[ii]]
+ 
+ # We proceed by simplifying bigphy by multiplying it by alive and keep. Then it contains non-zero entries at only the kept nodes
+ #  of the old phylogeny, and it has the (old) names of the parent. I think this *just* makes it easier to read.
+ 
+ bigphy<-bigphy*alive*keep
+
+ # bigphy now has the MRA of each kept and alive node. So every kept and alive node now has a kept parent.
+ # We now want to have cumulative keep, which is the new name for a given node and zero elsewhere, and the length of the 
+ #  new phylogeny, which is one less than the total number of nodes
+ 
+ # Now, keep indicates for each of the original nodes whether its to be kept, but not for the extra top node -- however that is
+ #  never kept, as it cannot have two alive daughters. But it may be the (old) name of the highest node if the original top
+ #  is not being kept.
+ 
+ # To define the names of the new nodes as indexed by the old nodes, we define cumkeep, and we need to add a final
+ #  element for the extra top. The new phylogeny has length sum(keep) minus one if the old root remains, but minus two if
+ #  the old root has gone, for then keep contains not only the old root but also its parent.  # 2014_01_31: still "true"?
+ 
+ cumkeep<-cumsum(keep)*keep
+ cumkeep<-c(cumkeep,1+max(cumkeep))
+ # if (keep[length(keep)]) {newlphy<-sum(keep)-1} else {newlphy<-sum(keep)-2} # Seems not to be necessary:
+ newlphy<-sum(keep)-1
+ # We can now create a new phylogeny with zero for non-included species, and each higher node having at least two daughters
+ 
+ newphy<-rep(-1,newlphy)
+ 
+ for (ii in 1:lphy) if (keep[ii] & alive[ii] & (cumkeep[ii]<=newlphy)) newphy[cumkeep[ii]]<-cumkeep[bigphy[ii]] 
+                                                                                                        # newphy now has the new name of new parent of new name of ii
+ newphy[1:nspec]<-newphy[1:nspec]*spu                                                                        # but non-included species are set to zero
+ 
+ # That's the new phylogeny made, but we also need the original names of each node
+ #  So we invert cumkeep...
+ 
+ on<-rep(0,newlphy+1)
+ for (ii in 1:(lphy+1)) if (cumkeep[ii] != 0) on[cumkeep[ii]]<-ii
+  
+ return(list(txp=newphy,on=on))
+ 
+ }  # finish uw
    
 pathlenfig2<- function(nspec,spu,txp) {
 
@@ -725,7 +666,6 @@ return(b)
   } # finish pathlenfig2;
 
 #========= Note this is a new version of makephy, replacing the old one on 2014_01_31. See bottom of definition
-
 #                         for more details.
 makephy<-function(taxmat) {
 
@@ -748,6 +688,12 @@ for (jj in 1:(nspec-1)) {
     mm<-nvectax; while (taxmat[[ii,mm]] == taxmat[[jj,mm]]) mm<-mm-1
     a[ii,jj]<-mm
    }}
+# Note I've reversed the logic appearance (changed a do until into a while) just above
+#  and I've now had to set mm to nvectax rather than nvectax+1: the SAS until clause evaluates at the
+#  end of the loop even though its placed at the beginning...
+
+# print("Got to long code section")
+# print("a");print(a);
 
 nextnodenumber<-nspec+1;
 orignodevec<-c(-1)
@@ -758,6 +704,7 @@ for (vecdiff in 1:nvectax) {
  for  (jj in 1:(nspec-1)) {
   notstarted<-1
   sistersofjj<--1
+  # print("d then jj"); print(d); print(jj)
   if (d[jj]==0) {
    for (ii in (jj+1):nspec) {
     if (a[[ii,jj]]<vecdiff) {
@@ -804,6 +751,11 @@ orignodevec<-orignodevec[-1];
 origparvec<-origparvec[-1];
 origlevvec<-origlevvec[-1];
 
+# print("orignodevec"); print(orignodevec)
+# print("origparvec"); print(origparvec)
+# print("origlevvec"); print(origlevvec)
+
+
 phy<-rep(-1,length(origparvec))
 levels<-rep(-1, length(origparvec))
 for (ii in 1:length(phy)) {
@@ -824,6 +776,9 @@ nextlevel<-max(blevels)+1
 blevels<-c(blevels, nextlevel) # /* The root requires a level too. */
 
 
+# print("phy"); print(phy)
+# print("levels");print(levels)
+
 return(list(phy=phy,levels=blevels))
 
 } # finish makephy (formerly makephyc);
@@ -837,6 +792,8 @@ return(list(phy=phy,levels=blevels))
     return((vec-min(vec))/(vec[length(vec)]-min(vec)))
     } #  finish scalehts;
 
+# mrca returns the most recent common ancestor of two nodes x and y in a phylogeny phy
+mrca<-function(x,y,phy) {while(x!=y){if (x<y) {x<-phy[x]} else {y<-phy[y]}}; return(x)}
 
 ## ========================================================================
 ##========================================================================
@@ -845,112 +802,51 @@ return(list(phy=phy,levels=blevels))
 
 funccall<-match.call()
 
-cfile<-paste0(tempdir(),"/","curparms")
+ NAMESPACEpath<-system.file("NAMESPACE",package="phyreg")
+ # print(NAMESPACEpath) # Why this was here I don't know 2018_04_05
+ cpath<-gsub("NAMESPACE","curparms",x=NAMESPACEpath)
+ mtc<-suppressWarnings(try(load(cpath),silent=TRUE))
+ dpath<-gsub("NAMESPACE","defparms",x=NAMESPACEpath)
+ mtd<-suppressWarnings(try(load(dpath),silent=TRUE))    ### added suppressWarnings in these two places only on 2018_04_05
+ if (class(mtc)=="try-error") {   # No curparms, so test for defparms
+    if (class(mtd)=="try-error") {factory_default(); load(dpath)}
+   .curparms<-.defparms}
+ # So we should now have .curparms and .defparms as variables, and we should have defparms as a file. We (re)write curparms later.
 
-save_curparms<-function() {
-  file.create(cfile)
-  save(curparms,file=cfile)
-}
+if (reset) .curparms<-.defparms
+.tempcurparms<-.curparms
 
-get_curparms<-function(reset) {
- if (file.exists(cfile)) try(load(cfile),silent=TRUE)
- if (!exists("curparms") || reset){
-   curparms<-list(control=NA, test=NA, subset=NULL,data=NA, phydata=NULL, heightsdata=NULL, addDF=0, rho=-1, lorho=0.3, hirho=0.6, errrho=0.02, 
-      minrho=0.0001, tolerance=0.000001, oppf=5, opdf=0, parmx=0, parmxz=0, opfunccall=0, taxmatrix=NULL, linputs=FALSE, sinputs=FALSE, means=FALSE,
-       lmshortx=FALSE, lmshortxz=FALSE, lmlongx=FALSE, lmlongxz=FALSE, hinput=FALSE, paper=FALSE, dfwarning=TRUE, oprho=FALSE, 
-       plot=FALSE, reset=FALSE)}
-  return(curparms)
-}
+compargs<-c("control","test","data")
+optargs<-c("phydata","heightsdata","taxmatrix")
+optdefargs<-c("subset","addDF","rho","lorho","hirho","errrho","minrho","tolerance","oppf","opdf","parmx","parmxz","opfunccall", "linputs", "sinputs", "means", "lmshortx", "lmshortxz", "lmlongx", "lmlongxz", "hinput", "paper","oprho")
 
-curparms<-get_curparms(reset)
-
-tempcurparms<-curparms
-
-compargs<-c("control","test")
-dataargs<-c("data","phydata","heightsdata","taxmatrix")
-optdefargs<-c("subset","addDF","rho","lorho","hirho","errrho","minrho","tolerance","oppf","opdf","dfwarning","parmx","parmxz","opfunccall", "linputs", "sinputs", "means", "lmshortx", "lmshortxz", "lmlongx", "lmlongxz", "hinput", "paper", "oprho",  "plot", "reset")
-
-strcomp<-"if (!((missing(myvar)))) tempcurparms$myvar<-myvar"
-#stropt<-"if (!((missing(myvar)))) tempcurparms$myvar<-myvar"
-stroptdef<-strcomp
+strcomp<-"if (!((missing(myvar)))) .tempcurparms$myvar<-myvar"
+stropt<-"if (!((missing(myvar)))) .tempcurparms$myvar<-myvar"
+stroptdef<-stropt
 
 # THEN I don't see that I need the distinction into the different types of parameters. But I guess I could maintain it in case I do later
 #  realise why...
 
   for (ss in compargs) {eval(parse(text=gsub("myvar",ss,fixed=TRUE,x=strcomp)))}
-#  for (ss in optargs) {eval(parse(text=gsub("myvar",ss,fixed=TRUE,x=stropt)))}
+  for (ss in optargs) {eval(parse(text=gsub("myvar",ss,fixed=TRUE,x=stropt)))}
   for (ss in optdefargs) {eval(parse(text=gsub("myvar",ss,fixed=TRUE,x=stroptdef)))}
   
-# Now for my new (2014_02_02) data argument handling, to store them as variable names (as strings) and not as the objects
-     fcmf <- match.call(expand.dots = FALSE)
-     targets<-c("data","phydata","taxmatrix","heightsdata")
-     indx<-which(names(fcmf) %in% targets,arr.ind=TRUE)
-     clist<-list(data="",phydata="",taxmatrix="",heightsdata="")
-    
-### We need this recursive function to get dollar-ed symbols into character variables
-dolc<-function(x) {
- if (length(x)==1) {if  (is.symbol(x)) return (paste0(x)) else return("--mistake, l1, not symbol--")} else
-  { if (x[[1]]=="$") return (c(dolc(x[[2]]),"$",dolc(x[[3]]))) else return ("-- mistake (residual) --")}}
+#  if (any(is.na(.tempcurparms$subset)))  .tempcurparms$subset<-rep(1,nrow(data)) # This is the only non-scalar parameter with a default, 
+  if (is.null(.tempcurparms$subset))  .tempcurparms$subset<-rep(1,nrow(data)) # This is the only non-scalar parameter with a default, 
+                                                                                                                                                 #     so it needs separate setting here
+                                    ## BUT I need a stop / message for the case where the user specifies a subset with some NA elements
   
-# We give it the argument, it gives us a character vector, which we paste0(...,collapse="") to get into what we want.
-
-#print("just about to do clist/dolc")
-#browser()
-
-     if(length(indx)>=1L) for (ii in 1:length(indx))
-            if (is.null(fcmf[[indx[[ii]]]])) clist[names(fcmf)[[indx[[ii]]]]]<-"NULL" else clist[names(fcmf)[[indx[[ii]]]]]<-paste0(dolc(fcmf[[indx[[ii]]]]),collapse="")
-            
-     for (kk in 1:length(clist)) if (clist[[kk]] != "") tempcurparms[names(clist)[kk]]<-clist[kk]
-     
+  .curparms<-.tempcurparms # This device ensures that if a missing variable causes a stop, the other variables don't get into curparms
+                                                    #    and same for the other any(is.na(...)) constructions. Maybe instead have subsetset boolean?
  
-
-if (!is.character(tempcurparms$data)) stop("No data supplied -- please use 'data=' argument of phyreg()")
-if (!exists(tempcurparms$data)) stop("The data=  argument to phyreg does not exist as a symbol -- check spelling?")
-
-## The || condition here (and the setting to "NULL" rather than NULL of the elements of clist) are needed because while it is possible to 
-##  to set a variable to NULL, and to define a list with some NULL elements, I can't find a way to assign an element in a list to NULL
-##  But this solution keeps those complications out of inphyreg. (Note the || evaluates only as necessary left to right.)
-
-if(is.null(tempcurparms$data) || tempcurparms$data=="NULL") {dataarg<-NULL; tempcurparms$data<-"NULL"}  else 
-  dataarg<-eval(parse(text=tempcurparms$data))
-if(is.null(tempcurparms$phydata) || tempcurparms$phydata=="NULL") {phyvararg<-NULL; tempcurparms$phydata<-"NULL"}  else 
-  phyvararg<-eval(parse(text=tempcurparms$phydata))
-if(is.null(tempcurparms$taxmatrix) || tempcurparms$taxmatrix=="NULL") {taxmatrixarg<-NULL; tempcurparms$taxmatrix<-"NULL"} else 
-  taxmatrixarg<-eval(parse(text=tempcurparms$taxmatrix))
-if(is.null(tempcurparms$heightsdata) || tempcurparms$heightsdata=="NULL") {heightsdataarg<-NULL; tempcurparms$heightsdata<-"NULL"} else 
-  heightsdataarg<-eval(parse(text=tempcurparms$heightsdata))
-  
-  
-if ((is.null(taxmatrixarg)+is.null(phyvararg))!=1) stop('Remove either taxmatrix or phyvar with "parameter=NULL" -- only one is allowed.')
-if (!is.null(phyvararg) && !is.null(heightsdataarg)) 
-   if (length(phyvararg)+1!=length(heightsdataarg)) stop("Your heightsdata should be one element longer than your phydata")
-#if (!is.null(taxmatrixarg) && !is.null(heightsdataarg)) 
- # if (length(heightsdataarg)!=ncol(taxmatrixarg))           ### This has to be done inside because we need to get phy from taxvar to see if the heights
-  #  stop("Your heightsdata should one element for each column of your taxmatrix")        ##   are right that way.
-  
-  if (!is.null(heightsdataarg) && any(is.na(heightsdataarg))) stop("Some of your supplied heights are NA (i.e. missing)")    ### a bad thing...
-  if (!is.null(phyvararg) && any(is.na(phyvararg))) stop("Some of your supplied phydata values are NA (i.e. missing)")    ### a bad thing...
-  if (!is.null(taxmatrixarg) && any(is.na(taxmatrixarg))) stop("Some of your supplied taxmatrix values are NA (i.e. missing)")    ### a bad thing...
-  
-    # Now to deal with subset...
-  
-   if (is.null(tempcurparms$subset))  tempcurparms$subset<-rep(1,nrow(dataarg)) # This is the only non-scalar parameter with a default, 
-                                                                                                                                                   #     so it needs separate setting here
-    if(any(!is.numeric(tempcurparms$subset))) stop("Your subset variable should not have missing (NA) values")
-                                                                          ## Note that the "data variables" are stored by name (and so can be changed on the fly) but subset is stored by value
- 
-   subset<-NA  ## This is so that within inphyreg, R will use its base function subset, instead of fretting about the parameter of phyreg of the same name.
-
-
-    curparms<-tempcurparms # The double-act and late assignment ensure that erroneous variable sets don't get into curparms
-                                                    #    but we don't save until afterwards anyway.
-
  # name conversions from phyreg to inphyreg are cont/control, intest/test, phyvar/phydata, taxmat/taxmatrix, inheights/heightsdata 
 
-  ipr<-inphyreg(cont=curparms$control, intest=curparms$test, dataframe=dataarg, insubset=curparms$subset,  phyvar=phyvararg, taxmat=taxmatrixarg, inheights=heightsdataarg, rho=curparms$rho, lorho=curparms$lorho, hirho=curparms$hirho, errrho=curparms$errrho, minrho=curparms$minrho, tolerance=curparms$tolerance, oppf=curparms$oppf, opdf=curparms$opdf, dfwarning=curparms$dfwarning, parmx=curparms$parmx, parmxz=curparms$parmxz, opfunccall=curparms$opfunccall, addDF= curparms$addDF, means=curparms$means, sinputs=curparms$sinputs, linputs=curparms$linputs, lmshortx=curparms$lmshortx, lmshortxz=curparms$lmshortxz, lmlongx=curparms$lmlongx, lmlongxz=curparms$lmlongxz, hinput=curparms$hinput, paper=curparms$paper,oprho=curparms$oprho, plot=curparms$plot )
-  
-  result<-save_curparms()  ## save only if the call to inphyreg finishes properly (DOCUMENT THIS)
+subset<-NA  ## This is so that within inphyreg, R will use its base function subset, instead of fretting about the parameter of phyreg of the same name.
 
+result<-save_curparms()  
+
+  ipr<-inphyreg(cont=.curparms$control, intest=.curparms$test, dataframe=.curparms$data, insubset=.curparms$subset,  phyvar=.curparms$phydata, taxmat=.curparms$taxmatrix, inheights=.curparms$heightsdata, rho=.curparms$rho, lorho=.curparms$lorho, hirho=.curparms$hirho, errrho=.curparms$errrho, minrho=.curparms$minrho, tolerance=.curparms$tolerance, oppf=.curparms$oppf, opdf=.curparms$opdf, parmx=.curparms$parmx, parmxz=.curparms$parmxz, opfunccall=.curparms$opfunccall, addDF= .curparms$addDF, means=.curparms$means, lmshortx=.curparms$lmshortx, lmshortxz=.curparms$lmshortxz, lmlongx=.curparms$lmlongx, lmlongxz=.curparms$lmlongxz, hinput=.curparms$hinput, paper=.curparms$paper,oprho=.curparms$oprho )
+  
  class(ipr)<-"phyreglm"
 
  return(invisible(ipr))
