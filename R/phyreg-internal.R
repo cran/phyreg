@@ -1,5 +1,5 @@
 .__global__ <-
-c(".defparms", ".curparms")
+".accEnv"
 .outputstoredinf <-
 function(inpr, details, requests, H0model, HAmodel) {
 

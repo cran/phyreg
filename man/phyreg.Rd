@@ -20,7 +20,7 @@ hinput = FALSE, paper = FALSE, dfwarning = TRUE, oprho = FALSE, reset = FALSE)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{control}{
-The null hypothesis model, which should be a formula with a response variable. If there are no variables to control for, specify \code{y~1}. (\code{y~0} is not permitted.)
+The null hypothesis model, which should be a formula with a response variable. If there are no variables to control for, specify \code{y~1}. (\code{y~0} is not permitted, as it undermines the logic of the test.)
 }
   \item{test}{The test terms. To control for \code{y~b}, and test for \code{a*x}, you can specify (i) \code{test="a*x"} or (ii) \code{test=y~b+a*x} or (iii) \code{test=~+a*x}. Note the "+" \emph{and} the absence of the response variable in the final form
 }
@@ -113,7 +113,7 @@ If nonzero, details of rho will be printed with \code{ndigits=oprho}. If rho was
 	
 The main feature of phylogenetic data that the Phylogenetic Regression deals with differently from other methods is \emph{unrecognised phylogeny}. It operates on the principle that each higher node should provide one datapoint to a valid test, and not more, and does so by choosing just one linear contrast across the daughters of each higher node. The contrast coefficients come from the residuals of the long regression on the control model. For a full mathematical justification of this choice, see the appendix to Grafen (1989), and see the paper itself for conceptual explanations. With binary phylogenies, of course, there is no unrecognised phylogeny. A parameter of the branch lengths is fitted automatically, unless the user wishes to impose a value, which allows the strength of phylogenetic association to be make weaker or stronger. Simulation studies in Grafen (1989) show that the method has good properties, and also that ignoring unrecognised phylogeny can create serious problems. 
 
-On some occasions, degrees of freedom are lost "for phylogenetic reasons". A whole node may be lost to the final test if the residuals of its daughter nodes are all zero in the long regression. This can happen for various reasons, most often when (i) the response is in fact binary, and so there is no variation in it below a node, or (ii) a categorical variable has so many values restricted to one part of the tree that a subset of its parameter values can adjust to render all the residuals zero in that part of the tree. That is called a node being lost in the denominator. The other possibility is that once the contrasts have been taken across each higher node, the design matrix for the model has lower rank than it did before, which is called losing a degree of freedom in the numerator (it is transferred to the denominator). You can choose to be warned when degrees of freedom are lost for phylogenetic reasons (use \code{dfwarning}=1), or to see a whole breakdown of degrees of freedom including any lost (use \code{opdf=1}). If nodes are lost in the denominator, their ID numbers are stored in the output \code{$shornodes}, though not this also contains an initial \code{0} for programming convenience. These phylogenetic degree of freedom issues need to be handled properly to provide a valid test -- see Grafen (1989) for details.
+On some occasions, degrees of freedom are lost "for phylogenetic reasons". A whole node may be lost to the final test if the residuals of its daughter nodes are all zero in the long regression. This can happen for various reasons, most often when (i) the response is in fact binary, and so there is no variation in it below a node, or (ii) a categorical variable has so many values restricted to one part of the tree that a subset of its parameter values can adjust to render all the residuals zero in that part of the tree. That is called a node being lost in the denominator. The other possibility is that once the contrasts have been taken across each higher node, the design matrix for the model has lower rank than it did before, which is called losing a degree of freedom in the numerator (it is transferred to the denominator). You can choose to be warned when degrees of freedom are lost for phylogenetic reasons (use \code{dfwarning}=1), or to see a whole breakdown of degrees of freedom including any lost (use \code{opdf=1}). If nodes are lost in the denominator, their ID numbers are stored in the output \code{$shornode}, though note this also contains an initial \code{0} for programming convenience. These phylogenetic degree of freedom issues need to be handled properly to provide a valid test -- see Grafen (1989) for details.
 	
 The data for long and short regressions, and the \code{lm.wfit()} output are provided on request, but must be used with great caution. The whole point of the phylogenetic regression is that neither type of regression provides results that can be taken at face value, except the long regression under binary phylogenies. Use at your own risk! See Grafen (1989) for details.
 
@@ -134,7 +134,7 @@ Some simulated data is included to facilitate the examples below -- see \code{\l
  \item{funccall}{The function call with which you invoked \code{phyreg}}
  \item{fullphy}{The full phylogeny for all species. This will just be \code{phydata} if you specified the phylogeny that way, but otherwise has been converted from taxonomic vectors.}
  \item{usedphy}{The phylogeny for the species included in the analysis. There is an entry for every species, and each included species has its original ID, and every omitted species has zero. There may well be fewer higher nodes in \code{usedphy} than in \code{fullphy}, because only higher nodes with two or more daughters are retained. This vector is useful if you want to study the matrices from the paper (see the argument and value\code{paper}) as many are indexed by \code{usedphy}. All node numbers reported by the program elsewhere are the original IDs, and so \code{usedphy} is important only for internal and/or technical reasons.}
- \item{originaIDs}{This tells you, for each node in \code{usedphy}, which node in \code{fullphy} it corresponds to.}
+ \item{originalIDs}{This tells you, for each node in \code{usedphy}, which node in \code{fullphy} it corresponds to.}
  \item{rho}{A list with \code{$rho}, \code{$lik} and \code{$edge} -- see \code{$details} for details}
  \item{sinputs}{(optional) the inputs to the short regression namely \code{sinputs$y}, \code{sinputs$design} and \code{sinputs$w} for the response, design matrix and weights}
  \item{linputs}{(optional) the inputs to the long regression namely \code{linputs$y}, \code{linputs$design} and \code{linputs$w} for the response, design matrix and weights}
@@ -183,7 +183,7 @@ inf(m1)
 inf(m1,oppf=3)
 inf(m1,oppf=7, oprho=5)
 inf(m1, oppf=5, "means", "parmx")
-inf(m1,"sinputs","shortx")
+inf(m1,"sinputs","lmshortx")
 ## The final call asks for things m1 doesn't have because it wasn't stored at the time. Now
 ##  we turn to changing the default parameters with new_default and factory_default. The help 
 ##  pages for those functions explain that only minor parameters (those affecting output and
@@ -191,10 +191,12 @@ inf(m1,"sinputs","shortx")
 ##  default values.
 new_default()
 ## This call takes the most recent parameters to phyreg and makes them the default, which
-##   in the first instance changes nothing. But if we restarted R and reloaded phyreg, we would
-##   automatically get output on rho and degrees of freedom, and the means and xz parameters
-##   printed).
-##   Within one session it makes a difference if we change those parameters...
+##   in the first instance changes nothing. But if we later call reset=TRUE as an argument
+##   of phyreg, it is the values at the time of calling new_default() that will be returned
+##   to. In this instance, we would automatically get output on rho and degrees
+##   of freedom, and the means and xz parameters printed).
+##   
+##   To see this in operation, we would change those parameters...
 phyreg(oprho=0,opdf=0,means=0,parmxz=0)
 ##   ... and then in the next call use reset=1. That will restore the defaults, which we changed
 ##   with new_default. To change the defaults back to the values that shipped with the
@@ -204,7 +206,7 @@ factory_default()
 ##
 ## Finally, the phylogeny has so far been determined by a data frame of taxonomic variables in the
 ##   argument taxmatrix. If we have the phylogeny available in newick style, we can convert to 
-##   the interal format, and then use that instead. Fortunately, one is provided. Note it it is
+##   the internal format, and then use that instead. Fortunately, one is provided. Note it is
 ##   good form to unset the other method of specifying a phylogeny (which is being remembered by
 ##   the package) with taxmatrix=NULL
 data(newickstr)

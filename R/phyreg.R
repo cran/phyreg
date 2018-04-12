@@ -3,23 +3,12 @@ function(control, test, data, subset, phydata, taxmatrix, heightsdata, rho=-1, l
 
 # ======= First define inphyreg and other functions, then get to body
 
-save_defparms<-function() {  ## These save_ files are multiply-defined (well the defparms one is, anyway, in phyreg and in restore_factory_parms
- NAMESPACEpath<-system.file("NAMESPACE",package="phyreg")
- newpath<-gsub("NAMESPACE","defparms",x=NAMESPACEpath)
-  save(.defparms,file=newpath) 
- }
-
-save_curparms<-function() {
- NAMESPACEpath<-system.file("NAMESPACE",package="phyreg")
- newpath<-gsub("NAMESPACE","curparms",x=NAMESPACEpath)
-  save(.curparms,file=newpath) 
- }
  
 inphyreg<-function(cont, intest, dataframe, insubset, phyvar, taxmat, inheights, rho=-1, lorho=0.1, hirho=0.9, errrho=0.08, minrho=0.01, 
 tolerance=1e-6, addDF=0, oppf=5, opdf=0, oprho=0, parmx=0, parmxz=0, opfunccall=0, linputs=FALSE, sinputs=FALSE, means=FALSE, lmshortx=FALSE, lmshortxz=FALSE, lmlongx=FALSE, lmlongxz=FALSE, hinput=FALSE, dfwarning=TRUE, paper=FALSE) {
 
 
-## =============== This is ginv, taken from R 3..0.2 on 26 January 2014, to avoid having to load MASS
+## =============== This is ginv, taken from R 3.0.2 on 26 January 2014, to avoid having to load MASS
 
 ginv<-  function (X, tol = sqrt(.Machine$double.eps)) 
 {
@@ -802,19 +791,8 @@ mrca<-function(x,y,phy) {while(x!=y){if (x<y) {x<-phy[x]} else {y<-phy[y]}}; ret
 
 funccall<-match.call()
 
- NAMESPACEpath<-system.file("NAMESPACE",package="phyreg")
- # print(NAMESPACEpath) # Why this was here I don't know 2018_04_05
- cpath<-gsub("NAMESPACE","curparms",x=NAMESPACEpath)
- mtc<-suppressWarnings(try(load(cpath),silent=TRUE))
- dpath<-gsub("NAMESPACE","defparms",x=NAMESPACEpath)
- mtd<-suppressWarnings(try(load(dpath),silent=TRUE))    ### added suppressWarnings in these two places only on 2018_04_05
- if (class(mtc)=="try-error") {   # No curparms, so test for defparms
-    if (class(mtd)=="try-error") {factory_default(); load(dpath)}
-   .curparms<-.defparms}
- # So we should now have .curparms and .defparms as variables, and we should have defparms as a file. We (re)write curparms later.
-
-if (reset) .curparms<-.defparms
-.tempcurparms<-.curparms
+ if (reset) .accEnv$.curparms<-.accEnv$.defparms
+ .tempcurparms<-.accEnv$.curparms
 
 compargs<-c("control","test","data")
 optargs<-c("phydata","heightsdata","taxmatrix")
@@ -836,16 +814,16 @@ stroptdef<-stropt
                                                                                                                                                  #     so it needs separate setting here
                                     ## BUT I need a stop / message for the case where the user specifies a subset with some NA elements
   
-  .curparms<-.tempcurparms # This device ensures that if a missing variable causes a stop, the other variables don't get into curparms
+  .accEnv$.curparms<-.tempcurparms # This device ensures that if a missing variable causes a stop, the other variables don't get into curparms
                                                     #    and same for the other any(is.na(...)) constructions. Maybe instead have subsetset boolean?
  
  # name conversions from phyreg to inphyreg are cont/control, intest/test, phyvar/phydata, taxmat/taxmatrix, inheights/heightsdata 
 
 subset<-NA  ## This is so that within inphyreg, R will use its base function subset, instead of fretting about the parameter of phyreg of the same name.
 
-result<-save_curparms()  
+curparms<-.accEnv$.curparms  ## This is put in to avoid the need to add .accEnv$ to each argument below, at cost of one more variable
 
-  ipr<-inphyreg(cont=.curparms$control, intest=.curparms$test, dataframe=.curparms$data, insubset=.curparms$subset,  phyvar=.curparms$phydata, taxmat=.curparms$taxmatrix, inheights=.curparms$heightsdata, rho=.curparms$rho, lorho=.curparms$lorho, hirho=.curparms$hirho, errrho=.curparms$errrho, minrho=.curparms$minrho, tolerance=.curparms$tolerance, oppf=.curparms$oppf, opdf=.curparms$opdf, parmx=.curparms$parmx, parmxz=.curparms$parmxz, opfunccall=.curparms$opfunccall, addDF= .curparms$addDF, means=.curparms$means, lmshortx=.curparms$lmshortx, lmshortxz=.curparms$lmshortxz, lmlongx=.curparms$lmlongx, lmlongxz=.curparms$lmlongxz, hinput=.curparms$hinput, paper=.curparms$paper,oprho=.curparms$oprho )
+  ipr<-inphyreg(cont=curparms$control, intest=curparms$test, dataframe=curparms$data, insubset=curparms$subset,  phyvar=curparms$phydata, taxmat=curparms$taxmatrix, inheights=curparms$heightsdata, rho=curparms$rho, lorho=curparms$lorho, hirho=curparms$hirho, errrho=curparms$errrho, minrho=curparms$minrho, tolerance=curparms$tolerance, oppf=curparms$oppf, opdf=curparms$opdf, parmx=curparms$parmx, parmxz=curparms$parmxz, opfunccall=curparms$opfunccall, addDF= curparms$addDF, means=curparms$means, lmshortx=curparms$lmshortx, lmshortxz=curparms$lmshortxz, lmlongx=curparms$lmlongx, lmlongxz=curparms$lmlongxz, hinput=curparms$hinput, paper=curparms$paper,oprho=curparms$oprho )
   
  class(ipr)<-"phyreglm"
 
